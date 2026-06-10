@@ -257,16 +257,359 @@ app.post("/auth/login", async (req, res) => {
   }
 });
 
-app.post("/bookings", (req, res) => {
-  const booking = req.body;
+app.post("/bookings", async (req, res) => {
+  try {
+    const {
+      asset_id,
+      user_id,
+      quantity,
+      purpose,
+      start_date,
+      end_date
+    } = req.body;
 
-  console.log("Booking Received:");
-  console.log(booking);
+    const assetResult = await pool.query(
+      "SELECT * FROM assets WHERE id = $1",
+      [asset_id]
+    );
 
-  res.json({
-    message: "Booking Created Successfully",
-    booking,
-  });
+    if (assetResult.rows.length === 0) {
+      return res.status(404).json({
+        message: "Asset not found"
+      });
+    }
+
+    const asset = assetResult.rows[0];
+
+    if (asset.available_quantity < quantity) {
+      return res.status(400).json({
+        message: "Not enough quantity available"
+      });
+    }
+
+    const bookingResult = await pool.query(
+      `INSERT INTO bookings
+      (
+        asset_id,
+        user_id,
+        quantity,
+        purpose,
+        start_date,
+        end_date,
+        status
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+      RETURNING *`,
+      [
+        asset_id,
+        user_id,
+        quantity,
+        purpose,
+        start_date,
+        end_date
+      ]
+    );
+
+    res.status(201).json({
+      message: "Booking request submitted",
+      booking: bookingResult.rows[0]
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "Booking creation failed"
+    });
+  }
+});
+
+app.patch("/bookings/:id/approve", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { approved_by } = req.body;
+
+    const bookingResult = await pool.query(
+      "SELECT * FROM bookings WHERE id = $1",
+      [id]
+    );
+
+    if (bookingResult.rows.length === 0) {
+      return res.status(404).json({
+        message: "Booking not found"
+      });
+    }
+
+    const booking = bookingResult.rows[0];
+
+    if (booking.status !== "pending") {
+      return res.status(400).json({
+        message: "Only pending bookings can be approved"
+      });
+    }
+
+    const assetResult = await pool.query(
+      "SELECT * FROM assets WHERE id = $1",
+      [booking.asset_id]
+    );
+
+    const asset = assetResult.rows[0];
+
+    if (asset.available_quantity < booking.quantity) {
+      return res.status(400).json({
+        message: "Not enough quantity available"
+      });
+    }
+
+    await pool.query(
+      `UPDATE assets
+       SET available_quantity = available_quantity - $1
+       WHERE id = $2`,
+      [booking.quantity, booking.asset_id]
+    );
+
+    const updatedBooking = await pool.query(
+      `UPDATE bookings
+       SET status = 'approved',
+           approved_by = $1
+       WHERE id = $2
+       RETURNING *`,
+      [approved_by, id]
+    );
+
+    res.json({
+      message: "Booking approved successfully",
+      booking: updatedBooking.rows[0]
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Booking approval failed"
+    });
+  }
+});
+
+app.patch("/bookings/:id/reject", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const bookingResult = await pool.query(
+      "SELECT * FROM bookings WHERE id = $1",
+      [id]
+    );
+
+    if (bookingResult.rows.length === 0) {
+      return res.status(404).json({
+        message: "Booking not found"
+      });
+    }
+
+    const booking = bookingResult.rows[0];
+
+    if (booking.status !== "pending") {
+      return res.status(400).json({
+        message: "Only pending bookings can be rejected"
+      });
+    }
+
+    const updatedBooking = await pool.query(
+      `UPDATE bookings
+       SET status = 'rejected'
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    );
+
+    res.json({
+      message: "Booking rejected successfully",
+      booking: updatedBooking.rows[0]
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "Booking rejection failed"
+    });
+  }
+});
+
+app.patch("/bookings/:id/issue", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const bookingResult = await pool.query(
+      "SELECT * FROM bookings WHERE id = $1",
+      [id]
+    );
+
+    if (bookingResult.rows.length === 0) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    const booking = bookingResult.rows[0];
+
+    if (booking.status !== "approved") {
+      return res.status(400).json({
+        message: "Only approved bookings can be issued"
+      });
+    }
+
+    const updatedBooking = await pool.query(
+      `UPDATE bookings
+       SET status = 'issued',
+           issued_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    );
+
+    res.json({
+      message: "Asset issued successfully",
+      booking: updatedBooking.rows[0]
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Asset issue failed" });
+  }
+});
+
+app.patch("/bookings/:id/return", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const bookingResult = await pool.query(
+      "SELECT * FROM bookings WHERE id = $1",
+      [id]
+    );
+
+    if (bookingResult.rows.length === 0) {
+      return res.status(404).json({
+        message: "Booking not found"
+      });
+    }
+
+    const booking = bookingResult.rows[0];
+
+    if (booking.status !== "issued") {
+      return res.status(400).json({
+        message: "Only issued bookings can be returned"
+      });
+    }
+
+    // Increase asset quantity back
+    await pool.query(
+      `UPDATE assets
+       SET available_quantity = available_quantity + $1
+       WHERE id = $2`,
+      [booking.quantity, booking.asset_id]
+    );
+
+    const updatedBooking = await pool.query(
+      `UPDATE bookings
+       SET status = 'returned',
+           returned_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    );
+
+    res.json({
+      message: "Asset returned successfully",
+      booking: updatedBooking.rows[0]
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "Asset return failed"
+    });
+  }
+});
+
+app.get("/bookings/my/:user_id", async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const result = await pool.query(
+      `SELECT bookings.*, assets.name AS asset_name, assets.category
+       FROM bookings
+       JOIN assets ON bookings.asset_id = assets.id
+       WHERE bookings.user_id = $1
+       ORDER BY bookings.created_at DESC`,
+      [user_id]
+    );
+
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to fetch user bookings" });
+  }
+});
+
+app.get("/bookings", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT bookings.*, users.name AS user_name, assets.name AS asset_name
+       FROM bookings
+       JOIN users ON bookings.user_id = users.id
+       JOIN assets ON bookings.asset_id = assets.id
+       ORDER BY bookings.created_at DESC`
+    );
+
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to fetch bookings" });
+  }
+});
+
+app.get("/dashboard/stats", async (req, res) => {
+  try {
+    const totalAssets = await pool.query(
+      "SELECT COUNT(*) FROM assets"
+    );
+
+    const availableInventory = await pool.query(
+      "SELECT SUM(available_quantity) FROM assets"
+    );
+
+    const activeBookings = await pool.query(
+      "SELECT COUNT(*) FROM bookings WHERE status IN ('approved', 'issued')"
+    );
+
+    const overdueReturns = await pool.query(
+      `SELECT COUNT(*) FROM bookings
+       WHERE status = 'issued' AND end_date < CURRENT_DATE`
+    );
+
+    const mostUsedAssets = await pool.query(
+      `SELECT assets.name, COUNT(bookings.id) AS booking_count
+       FROM bookings
+       JOIN assets ON bookings.asset_id = assets.id
+       GROUP BY assets.name
+       ORDER BY booking_count DESC`
+    );
+
+    res.json({
+      total_assets: Number(totalAssets.rows[0].count),
+      available_inventory: Number(availableInventory.rows[0].sum),
+      active_bookings: Number(activeBookings.rows[0].count),
+      overdue_returns: Number(overdueReturns.rows[0].count),
+      most_used_assets: mostUsedAssets.rows
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Failed to fetch dashboard stats"
+    });
+  }
 });
 
 app.listen(PORT, () => {
