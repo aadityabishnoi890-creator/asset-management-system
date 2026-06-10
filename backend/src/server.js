@@ -1,12 +1,17 @@
 const express = require("express");
+const jwt = require("jsonwebtoken");
+const JWT_SECRET = "asset_management_secret";
 const pool = require("./db");
 const bcrypt = require("bcrypt");
 
+const cors = require("cors");
+
 const app = express();
 
-const PORT = 3000;
-
+app.use(cors());
 app.use(express.json());
+
+const PORT = 3000;
 
 app.get("/", (req, res) => {
     res.send("Asset Management Server Running!");
@@ -175,24 +180,43 @@ app.post("/auth/register", async (req, res) => {
       branch,
       year,
       course,
-      password
+      password,
+      role
     } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        message: "Name, email and password are required"
+      });
+    }
+
+    const existingUser = await pool.query(
+      "SELECT id FROM users WHERE email = $1",
+      [email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({
+        message: "Email already registered"
+      });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await pool.query(
       `INSERT INTO users
-      (name, email, mobile, branch, year, course, password_hash)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, name, email`,
+      (name, email, mobile, branch, year, course, password_hash, role)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id, name, email, role`,
       [
         name,
         email,
-        mobile,
-        branch,
-        year,
-        course,
-        hashedPassword
+        mobile || null,
+        branch || null,
+        year || null,
+        course || null,
+        hashedPassword,
+        role || "user"
       ]
     );
 
@@ -238,21 +262,70 @@ app.post("/auth/login", async (req, res) => {
       });
     }
 
-    res.json({
-      message: "Login successful",
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
-    });
+    const token = jwt.sign(
+  {
+    id: user.id,
+    email: user.email,
+    role: user.role
+  },
+  JWT_SECRET,
+  { expiresIn: "7d" }
+);
+
+res.json({
+  message: "Login successful",
+  token,
+  user: {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role
+  }
+});
 
   } catch (error) {
     console.error(error);
 
     res.status(500).json({
       message: "Login failed"
+    });
+  }
+});
+
+app.get("/auth/me", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      return res.status(401).json({
+        message: "No token provided"
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    const result = await pool.query(
+      "SELECT id, name, email, role FROM users WHERE id = $1",
+      [decoded.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "User not found"
+      });
+    }
+
+    res.json({
+      user: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(401).json({
+      message: "Invalid or expired token"
     });
   }
 });
