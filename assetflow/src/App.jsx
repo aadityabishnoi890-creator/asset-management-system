@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import { AuthProvider } from './context/AuthContext'
-import { LoginPage, RegisterPage } from './pages/AuthPages'
+import { AuthProvider } from './context/auth_context.jsx'
+import { LoginPage, RegisterPage } from './pages/authpages.jsx'
 
 export default function App() {
   return (
