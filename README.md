@@ -209,9 +209,10 @@ Make sure you're running ⁠ npm run dev ⁠ from the ⁠ assetflow/ ⁠
 ### Port already in use
 
 ⁠ bash
+```text	
 lsof -ti:3000 | xargs kill -9   # free backend port
 lsof -ti:5173 | xargs kill -9   # free frontend port
- ⁠
+```
 
 ### Import resolution errors after cloning
 
