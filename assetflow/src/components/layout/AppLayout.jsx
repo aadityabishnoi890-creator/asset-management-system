@@ -6,7 +6,7 @@ import {
   Bell, LogOut, ChevronRight, Menu, ShieldCheck, 
   ClipboardList, Activity, QrCode
 } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../context/auth_context.jsx'
 
 const userNav = [
   { to: '/dashboard', label: 'Dashboard',     icon: LayoutDashboard },
@@ -152,6 +152,8 @@ export function AppLayout() {
       </div>
     </div>
   )
+}
+
 function NotificationBell() {
   const [notifs, setNotifs]       = useState(MOCK_NOTIFS)
   const [showPanel, setShowPanel] = useState(false)
@@ -248,5 +250,4 @@ function NotificationBell() {
       )}
     </div>
   )
-}
 }

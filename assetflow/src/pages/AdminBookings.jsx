@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CheckCircle, XCircle, ArrowDownCircle, ArrowUpCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { bookingAPI } from '../api/services'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 const INITIAL_BOOKINGS = [
@@ -23,11 +24,34 @@ const STATUS_STYLES = {
 const TABS = ['pending', 'approved', 'issued', 'all']
 
 export function AdminBookingsPage() {
-  const [bookings, setBookings]     = useState(INITIAL_BOOKINGS)
+  const [bookings, setBookings]     = useState([])
   const [tab, setTab]               = useState('pending')
   const [actionItem, setActionItem] = useState(null)
   const [rejectNote, setRejectNote] = useState('')
   const [showReject, setShowReject] = useState(false)
+  const [loading, setLoading]       = useState(true)
+
+  useEffect(() => {
+    let active = true
+
+    const loadBookings = async () => {
+      try {
+        const res = await bookingAPI.getAll()
+        const nextBookings = res.data.bookings ?? res.data ?? []
+        if (active) setBookings(nextBookings)
+      } catch {
+        toast.error('Failed to load bookings')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadBookings()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const tabData = {
     pending:  bookings.filter(b => b.status === 'PENDING'),
@@ -36,34 +60,34 @@ export function AdminBookingsPage() {
     all:      bookings,
   }
 
-  const updateStatus = (id, newStatus) => {
-    // TODO: swap with real API calls:
-    // approve  → await bookingAPI.approve(id)
-    // reject   → await bookingAPI.reject(id, { reason: rejectNote })
-    // issue    → await bookingAPI.issue(id)
-    // return   → await bookingAPI.return(id)
-    setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b))
-  }
-
-  const handleApprove = (booking) => {
-    updateStatus(booking.id, 'APPROVED')
+  const handleApprove = async (booking) => {
+    const res = await bookingAPI.approve(booking.id)
+    const updated = res.data.booking ?? res.data
+    setBookings(prev => prev.map(b => b.id === booking.id ? updated : b))
     toast.success(`Booking approved for ${booking.user.name}`)
   }
 
-  const handleIssue = (booking) => {
-    updateStatus(booking.id, 'ISSUED')
+  const handleIssue = async (booking) => {
+    const res = await bookingAPI.issue(booking.id)
+    const updated = res.data.booking ?? res.data
+    setBookings(prev => prev.map(b => b.id === booking.id ? updated : b))
     toast.success(`Assets issued to ${booking.user.name}`)
   }
 
-  const handleReturn = (booking) => {
-    updateStatus(booking.id, 'RETURNED')
+  const handleReturn = async (booking) => {
+    const res = await bookingAPI.return(booking.id)
+    const updated = res.data.booking ?? res.data
+    setBookings(prev => prev.map(b => b.id === booking.id ? updated : b))
     toast.success('Assets marked as returned ✓')
   }
 
   const openReject = (booking) => { setActionItem(booking); setShowReject(true) }
 
-  const handleReject = () => {
-    updateStatus(actionItem.id, 'REJECTED')
+  const handleReject = async () => {
+    if (!actionItem) return
+    const res = await bookingAPI.reject(actionItem.id, { reason: rejectNote })
+    const updated = res.data.booking ?? res.data
+    setBookings(prev => prev.map(b => b.id === actionItem.id ? updated : b))
     toast.success('Booking rejected')
     setShowReject(false)
     setActionItem(null)
@@ -77,6 +101,7 @@ export function AdminBookingsPage() {
 
   return (
     <div className="space-y-5">
+      {loading && <div className="py-10 text-sm text-slate-500">Loading bookings…</div>}
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -116,7 +141,7 @@ export function AdminBookingsPage() {
       </div>
 
       {/* Table */}
-      {tabData[tab].length === 0 ? (
+      {!loading && tabData[tab].length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="text-4xl mb-3">📋</div>
           <p className="text-sm font-semibold text-slate-700">No {tab} bookings</p>
@@ -190,7 +215,7 @@ export function AdminBookingsPage() {
                       {b.status === 'PENDING' && (
                         <>
                           <button
-                            onClick={() => handleApprove(b)}
+                            onClick={() => handleApprove(b).catch(() => toast.error('Could not approve booking'))}
                             title="Approve"
                             className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
                           >
@@ -208,7 +233,7 @@ export function AdminBookingsPage() {
 
                       {b.status === 'APPROVED' && (
                         <button
-                          onClick={() => handleIssue(b)}
+                          onClick={() => handleIssue(b).catch(() => toast.error('Could not issue asset'))}
                           title="Issue asset"
                           className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
                         >
@@ -218,7 +243,7 @@ export function AdminBookingsPage() {
 
                       {b.status === 'ISSUED' && (
                         <button
-                          onClick={() => handleReturn(b)}
+                          onClick={() => handleReturn(b).catch(() => toast.error('Could not mark returned'))}
                           title="Mark returned"
                           className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
                         >
@@ -254,13 +279,13 @@ export function AdminBookingsPage() {
             />
             <div className="flex gap-3 justify-end mt-4">
               <button
-                onClick={() => { setShowReject(false); setActionItem(null) }}
+                onClick={() => { setShowReject(false); setActionItem(null); setRejectNote('') }}
                 className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
               >
                 Cancel
               </button>
               <button
-                onClick={handleReject}
+                onClick={() => handleReject().catch(() => toast.error('Could not reject booking'))}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
               >
                 Reject booking

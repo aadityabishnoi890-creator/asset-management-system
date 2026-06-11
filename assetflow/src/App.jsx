@@ -1,15 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import { AuthProvider, useAuth } from './context/AuthContext'
+import { AuthProvider, useAuth } from './context/auth_context.jsx'
 import { AppLayout } from './components/layout/AppLayout'
-import { LoginPage, RegisterPage } from './pages/AuthPages'
+import { LoginPage, RegisterPage } from './pages/authpages.jsx'
 import { AssetsPage } from './pages/AssetsPage'
 import { AdminAssetsPage } from './pages/AdminAssets'
 import { AdminBookingsPage } from './pages/AdminBookings'
 import { UserDashboardPage } from './pages/UserDashboard'
-import { HistoryPage } from './pages/HistoryPage'
+import { HistoryPage } from './pages/HIstoryPage.jsx'
 import { AdminDashboardPage } from './pages/AdminDashboard'
 import { AuditLogsPage } from './pages/AuditLogsPage'
+import { QRPage } from './pages/QRPage'
 
 function RequireAuth() {
   const { user, loading } = useAuth()
@@ -54,8 +55,9 @@ export default function App() {
           <Route element={<RequireAuth />}>
             <Route element={<AppLayout />}>
               <Route path="/assets" element={<AssetsPage />} />
-              <Route path="/dashboard" element={<User Dashboard/>} />
-              <Route path="/history"   element={<HistoryPage/>} />
+              <Route path="/dashboard" element={<UserDashboardPage />} />
+              <Route path="/history"   element={<HistoryPage />} />
+              <Route path="/bookings" element={<Navigate to="/history" replace />} />
             </Route>
           </Route>
 
@@ -66,7 +68,8 @@ export default function App() {
               <Route path="/admin/assets" element={<AdminAssetsPage />} />
               <Route path="/admin/bookings"  element={<AdminBookingsPage />} />
               <Route path="/admin/audit" element={<AuditLogsPage />} />
-              <Route path="/admin/qr"        element={<Soon name="QR Scanner" />} />
+              <Route path="/admin/qr" element={<QRPage />} />
+              <Route path="/admin/history" element={<Navigate to="/admin/audit" replace />} />
             </Route>
           </Route>
 

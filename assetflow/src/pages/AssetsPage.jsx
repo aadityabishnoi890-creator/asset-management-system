@@ -1,20 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Search, Filter, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useState as useLocalState } from 'react'
-
-// ── Mock data (swap for real API once Aaditya's backend is ready) ──────────
-const MOCK_ASSETS = [
-  { id: '1', name: 'DSLR Canon EOS 5D Mark IV', category: 'Camera',   description: 'Professional full-frame DSLR camera', quantity: 3, bookedQuantity: 1, status: 'AVAILABLE' },
-  { id: '2', name: 'Rode NTG4+ Shotgun Mic',    category: 'Audio',    description: 'Directional condenser microphone',       quantity: 5, bookedQuantity: 2, status: 'AVAILABLE' },
-  { id: '3', name: 'Aputure 300D Mark II',       category: 'Lighting', description: 'Professional LED studio light',         quantity: 4, bookedQuantity: 4, status: 'IN_USE'    },
-  { id: '4', name: 'DJI Ronin-S Gimbal',         category: 'Camera',   description: 'Single-handed camera stabilizer',       quantity: 2, bookedQuantity: 0, status: 'AVAILABLE' },
-  { id: '5', name: 'Yamaha MG10 Mixer',          category: 'Audio',    description: '10-channel audio mixing console',       quantity: 2, bookedQuantity: 1, status: 'AVAILABLE' },
-  { id: '6', name: 'Stage Costume Set A',        category: 'Costume',  description: 'Traditional dance costume set (10pcs)', quantity: 10,bookedQuantity: 3, status: 'AVAILABLE' },
-  { id: '7', name: 'Backdrop Stand 10ft',        category: 'Props',    description: 'Adjustable photography backdrop stand', quantity: 3, bookedQuantity: 0, status: 'AVAILABLE' },
-  { id: '8', name: 'Zoom H6 Recorder',           category: 'Recording',description: '6-track portable audio recorder',      quantity: 4, bookedQuantity: 1, status: 'AVAILABLE' },
-  { id: '9', name: 'Portable PA System',         category: 'Infrastructure', description: '500W portable speaker system',  quantity: 2, bookedQuantity: 0, status: 'AVAILABLE' },
-]
+import { assetAPI, bookingAPI } from '../api/services'
 
 const CATEGORIES = ['All', 'Camera', 'Audio', 'Lighting', 'Costume', 'Props', 'Recording', 'Infrastructure']
 
@@ -37,17 +24,45 @@ const STATUS_STYLES = {
 }
 
 export function AssetsPage() {
+  const [assets, setAssets]       = useState([])
   const [search, setSearch]       = useState('')
   const [category, setCategory]   = useState('All')
   const [selected, setSelected]   = useState(null)
   const [showModal, setShowModal] = useState(false)
+  const [loading, setLoading]     = useState(true)
 
-  const filtered = MOCK_ASSETS.filter(a => {
+  useEffect(() => {
+    let active = true
+
+    const loadAssets = async () => {
+      try {
+        const res = await assetAPI.getAll()
+        const nextAssets = res.data.assets ?? res.data ?? []
+        if (active) setAssets(nextAssets)
+      } catch {
+        toast.error('Failed to load assets')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadAssets()
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const filtered = assets.filter(a => {
     const matchSearch = a.name.toLowerCase().includes(search.toLowerCase()) ||
                         a.description.toLowerCase().includes(search.toLowerCase())
     const matchCat = category === 'All' || a.category === category
     return matchSearch && matchCat
   })
+
+  if (loading) {
+    return <div className="py-10 text-sm text-slate-500">Loading assets…</div>
+  }
 
   return (
     <div className="space-y-5">
@@ -198,11 +213,13 @@ function BookingModal({ asset, open, onClose }) {
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
     setLoading(true)
-    // TODO: swap with real API — bookingAPI.create({ assetId: asset.id, ...form })
-    await new Promise(r => setTimeout(r, 800)) // simulate network
-    toast.success('Booking request submitted! Awaiting admin approval.')
-    setLoading(false)
-    onClose()
+    try {
+      await bookingAPI.create({ assetId: asset.id, ...form })
+      toast.success('Booking request submitted! Awaiting admin approval.')
+      onClose()
+    } finally {
+      setLoading(false)
+    }
   }
 
   const set = (k) => (e) => {
