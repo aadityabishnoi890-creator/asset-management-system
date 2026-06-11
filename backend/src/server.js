@@ -1,690 +1,281 @@
-const express = require("express");
-const jwt = require("jsonwebtoken");
-const JWT_SECRET = "asset_management_secret";
-const pool = require("./db");
-const bcrypt = require("bcrypt");
+const express = require('express')
 
-const cors = require("cors");
+const app = express()
+const PORT = 3000
 
-const app = express();
+app.use(express.json())
 
-app.use(cors());
-app.use(express.json());
+const users = [
+  { id: '1', name: 'Admin User', email: 'admin@assetflow.local', password: 'admin123', role: 'ADMIN' },
+  { id: '2', name: 'Aman Sharma', email: 'aman@iitroorkee.ac.in', password: 'password123', role: 'USER' },
+  { id: '3', name: 'Priya Singh', email: 'priya@iitroorkee.ac.in', password: 'password123', role: 'USER' },
+]
 
-const PORT = 3000;
+const assets = [
+  { id: '1', name: 'DSLR Canon EOS 5D Mark IV', category: 'Camera', description: 'Professional full-frame DSLR camera', quantity: 3, status: 'AVAILABLE', condition: 'Excellent' },
+  { id: '2', name: 'Rode NTG4+ Shotgun Mic', category: 'Audio', description: 'Directional condenser mic', quantity: 5, status: 'AVAILABLE', condition: 'Good' },
+  { id: '3', name: 'Aputure 300D Mark II', category: 'Lighting', description: 'Professional LED light', quantity: 4, status: 'IN_USE', condition: 'Good' },
+  { id: '4', name: 'DJI Ronin-S Gimbal', category: 'Camera', description: 'Camera stabilizer', quantity: 2, status: 'AVAILABLE', condition: 'Excellent' },
+  { id: '5', name: 'Yamaha MG10 Mixer', category: 'Audio', description: '10-channel mixing console', quantity: 2, status: 'AVAILABLE', condition: 'Fair' },
+]
 
-app.get("/", (req, res) => {
-    res.send("Asset Management Server Running!");
-});
+const bookings = [
+  { id: '1', userId: '2', assetId: '1', quantity: 1, startDate: '2025-06-12', endDate: '2025-06-14', dueDate: '2025-06-14', purpose: 'Photography workshop', status: 'ISSUED' },
+  { id: '2', userId: '3', assetId: '2', quantity: 2, startDate: '2025-06-15', endDate: '2025-06-17', dueDate: '2025-06-17', purpose: 'Music fest recording', status: 'PENDING' },
+  { id: '3', userId: '2', assetId: '5', quantity: 1, startDate: '2025-06-01', endDate: '2025-06-03', dueDate: '2025-06-03', purpose: 'DJ night', status: 'RETURNED', returnedAt: '2025-06-03' },
+]
 
-app.get("/assets", async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM assets ORDER BY id"
-    );
+const sessions = new Map()
 
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
+function randomId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
 
-    res.status(500).json({
-      message: "Database Error",
-    });
+function publicUser(user) {
+  if (!user) return null
+  return { id: user.id, name: user.name, email: user.email, role: user.role }
+}
+
+function findUserByToken(token) {
+  const userId = sessions.get(token)
+  return users.find((user) => user.id === userId) || null
+}
+
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  const user = findUserByToken(token)
+
+  if (!user) {
+    return res.status(401).json({ message: 'Unauthorized' })
   }
-});
 
-app.post("/assets", async (req, res) => {
+  req.user = user
+  next()
+}
 
-    try {
-
-        const {
-
-            name,
-
-            category,
-
-            description,
-
-            total_quantity,
-
-            available_quantity
-
-        } = req.body;
-
-        const result = await pool.query(
-
-            `INSERT INTO assets
-
-            (name, category, description, total_quantity, available_quantity)
-
-            VALUES ($1, $2, $3, $4, $5)
-
-            RETURNING *`,
-
-            [
-
-                name,
-
-                category,
-
-                description,
-
-                total_quantity,
-
-                available_quantity
-
-            ]
-
-        );
-
-        res.status(201).json(result.rows[0]);
-
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-
-            message: "Database Error"
-
-        });
-
-    }
-
-});
-
-app.put("/assets/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const {
-      name,
-      category,
-      description,
-      total_quantity,
-      available_quantity,
-      status
-    } = req.body;
-
-    const result = await pool.query(
-      `UPDATE assets
-       SET name = $1,
-           category = $2,
-           description = $3,
-           total_quantity = $4,
-           available_quantity = $5,
-           status = $6
-       WHERE id = $7
-       RETURNING *`,
-      [
-        name,
-        category,
-        description,
-        total_quantity,
-        available_quantity,
-        status,
-        id
-      ]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Asset not found"
-      });
-    }
-
-    res.json(result.rows[0]);
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      message: "Database Error"
-    });
+function requireAdmin(req, res, next) {
+  if (req.user?.role !== 'ADMIN') {
+    return res.status(403).json({ message: 'Admin access required' })
   }
-});
 
-app.delete("/assets/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
+  next()
+}
 
-    const result = await pool.query(
-      "DELETE FROM assets WHERE id = $1 RETURNING *",
-      [id]
-    );
+function activeBookingStatuses() {
+  return new Set(['PENDING', 'APPROVED', 'ISSUED'])
+}
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Asset not found"
-      });
-    }
+function bookedQuantityForAsset(assetId) {
+  return bookings
+    .filter((booking) => booking.assetId === assetId && activeBookingStatuses().has(booking.status))
+    .reduce((total, booking) => total + Number(booking.quantity || 0), 0)
+}
 
-    res.json({
-      message: "Asset deleted successfully",
-      deletedAsset: result.rows[0]
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      message: "Database Error"
-    });
+function serializeAsset(asset) {
+  return {
+    ...asset,
+    bookedQuantity: bookedQuantityForAsset(asset.id),
   }
-});
+}
 
-app.post("/auth/register", async (req, res) => {
-  try {
-    const {
-      name,
-      email,
-      mobile,
-      branch,
-      year,
-      course,
-      password,
-      role
-    } = req.body;
-
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        message: "Name, email and password are required"
-      });
-    }
-
-    const existingUser = await pool.query(
-      "SELECT id FROM users WHERE email = $1",
-      [email]
-    );
-
-    if (existingUser.rows.length > 0) {
-      return res.status(400).json({
-        message: "Email already registered"
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const result = await pool.query(
-      `INSERT INTO users
-      (name, email, mobile, branch, year, course, password_hash, role)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING id, name, email, role`,
-      [
-        name,
-        email,
-        mobile || null,
-        branch || null,
-        year || null,
-        course || null,
-        hashedPassword,
-        role || "user"
-      ]
-    );
-
-    res.status(201).json({
-      message: "User registered successfully",
-      user: result.rows[0]
-    });
-
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Registration failed"
-    });
+function serializeBooking(booking) {
+  return {
+    ...booking,
+    user: publicUser(users.find((user) => user.id === booking.userId)),
+    asset: assets.find((asset) => asset.id === booking.assetId)
+      ? {
+          id: booking.assetId,
+          name: assets.find((asset) => asset.id === booking.assetId).name,
+          category: assets.find((asset) => asset.id === booking.assetId).category,
+        }
+      : null,
   }
-});
+}
 
-app.post("/auth/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
+app.get('/', (req, res) => {
+  res.send('Asset Management Server Running!')
+})
 
-    const result = await pool.query(
-      "SELECT * FROM users WHERE email = $1",
-      [email]
-    );
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true })
+})
 
-    if (result.rows.length === 0) {
-      return res.status(401).json({
-        message: "Invalid email or password"
-      });
-    }
+app.post('/api/auth/register', (req, res) => {
+  const { name, email, password, role = 'USER' } = req.body || {}
 
-    const user = result.rows[0];
-
-    const isMatch = await bcrypt.compare(
-      password,
-      user.password_hash
-    );
-
-    if (!isMatch) {
-      return res.status(401).json({
-        message: "Invalid email or password"
-      });
-    }
-
-    const token = jwt.sign(
-  {
-    id: user.id,
-    email: user.email,
-    role: user.role
-  },
-  JWT_SECRET,
-  { expiresIn: "7d" }
-);
-
-res.json({
-  message: "Login successful",
-  token,
-  user: {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'Name, email, and password are required' })
   }
-});
 
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Login failed"
-    });
+  if (users.some((user) => user.email.toLowerCase() === String(email).toLowerCase())) {
+    return res.status(409).json({ message: 'Email already registered' })
   }
-});
 
-app.get("/auth/me", async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-      return res.status(401).json({
-        message: "No token provided"
-      });
-    }
-
-    const token = authHeader.split(" ")[1];
-
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    const result = await pool.query(
-      "SELECT id, name, email, role FROM users WHERE id = $1",
-      [decoded.id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "User not found"
-      });
-    }
-
-    res.json({
-      user: result.rows[0]
-    });
-
-  } catch (error) {
-    console.error(error);
-
-    res.status(401).json({
-      message: "Invalid or expired token"
-    });
+  const user = {
+    id: randomId(),
+    name,
+    email,
+    password,
+    role: role === 'ADMIN' ? 'ADMIN' : 'USER',
   }
-});
 
-app.post("/bookings", async (req, res) => {
-  try {
-    const {
-      asset_id,
-      user_id,
-      quantity,
-      purpose,
-      start_date,
-      end_date
-    } = req.body;
+  users.push(user)
+  const token = randomId()
+  sessions.set(token, user.id)
 
-    const assetResult = await pool.query(
-      "SELECT * FROM assets WHERE id = $1",
-      [asset_id]
-    );
+  return res.json({ token, user: publicUser(user) })
+})
 
-    if (assetResult.rows.length === 0) {
-      return res.status(404).json({
-        message: "Asset not found"
-      });
-    }
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body || {}
+  const user = users.find((candidate) => candidate.email.toLowerCase() === String(email || '').toLowerCase() && candidate.password === password)
 
-    const asset = assetResult.rows[0];
-
-    if (asset.available_quantity < quantity) {
-      return res.status(400).json({
-        message: "Not enough quantity available"
-      });
-    }
-
-    const bookingResult = await pool.query(
-      `INSERT INTO bookings
-      (
-        asset_id,
-        user_id,
-        quantity,
-        purpose,
-        start_date,
-        end_date,
-        status
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, 'pending')
-      RETURNING *`,
-      [
-        asset_id,
-        user_id,
-        quantity,
-        purpose,
-        start_date,
-        end_date
-      ]
-    );
-
-    res.status(201).json({
-      message: "Booking request submitted",
-      booking: bookingResult.rows[0]
-    });
-
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Booking creation failed"
-    });
+  if (!user) {
+    return res.status(401).json({ message: 'Invalid email or password' })
   }
-});
 
-app.patch("/bookings/:id/approve", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { approved_by } = req.body;
+  const token = randomId()
+  sessions.set(token, user.id)
 
-    const bookingResult = await pool.query(
-      "SELECT * FROM bookings WHERE id = $1",
-      [id]
-    );
+  return res.json({ token, user: publicUser(user) })
+})
 
-    if (bookingResult.rows.length === 0) {
-      return res.status(404).json({
-        message: "Booking not found"
-      });
-    }
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  return res.json({ user: publicUser(req.user) })
+})
 
-    const booking = bookingResult.rows[0];
+app.get('/api/assets', (req, res) => {
+  return res.json(assets.map(serializeAsset))
+})
 
-    if (booking.status !== "pending") {
-      return res.status(400).json({
-        message: "Only pending bookings can be approved"
-      });
-    }
+app.get('/api/assets/:id', (req, res) => {
+  const asset = assets.find((candidate) => candidate.id === req.params.id)
 
-    const assetResult = await pool.query(
-      "SELECT * FROM assets WHERE id = $1",
-      [booking.asset_id]
-    );
-
-    const asset = assetResult.rows[0];
-
-    if (asset.available_quantity < booking.quantity) {
-      return res.status(400).json({
-        message: "Not enough quantity available"
-      });
-    }
-
-    await pool.query(
-      `UPDATE assets
-       SET available_quantity = available_quantity - $1
-       WHERE id = $2`,
-      [booking.quantity, booking.asset_id]
-    );
-
-    const updatedBooking = await pool.query(
-      `UPDATE bookings
-       SET status = 'approved',
-           approved_by = $1
-       WHERE id = $2
-       RETURNING *`,
-      [approved_by, id]
-    );
-
-    res.json({
-      message: "Booking approved successfully",
-      booking: updatedBooking.rows[0]
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      message: "Booking approval failed"
-    });
+  if (!asset) {
+    return res.status(404).json({ message: 'Asset not found' })
   }
-});
 
-app.patch("/bookings/:id/reject", async (req, res) => {
-  try {
-    const { id } = req.params;
+  return res.json(serializeAsset(asset))
+})
 
-    const bookingResult = await pool.query(
-      "SELECT * FROM bookings WHERE id = $1",
-      [id]
-    );
+app.post('/api/assets', requireAuth, requireAdmin, (req, res) => {
+  const { name, category, description = '', quantity = 1, status = 'AVAILABLE', condition = 'Good' } = req.body || {}
 
-    if (bookingResult.rows.length === 0) {
-      return res.status(404).json({
-        message: "Booking not found"
-      });
-    }
-
-    const booking = bookingResult.rows[0];
-
-    if (booking.status !== "pending") {
-      return res.status(400).json({
-        message: "Only pending bookings can be rejected"
-      });
-    }
-
-    const updatedBooking = await pool.query(
-      `UPDATE bookings
-       SET status = 'rejected'
-       WHERE id = $1
-       RETURNING *`,
-      [id]
-    );
-
-    res.json({
-      message: "Booking rejected successfully",
-      booking: updatedBooking.rows[0]
-    });
-
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Booking rejection failed"
-    });
+  if (!name || !category) {
+    return res.status(400).json({ message: 'Name and category are required' })
   }
-});
 
-app.patch("/bookings/:id/issue", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const bookingResult = await pool.query(
-      "SELECT * FROM bookings WHERE id = $1",
-      [id]
-    );
-
-    if (bookingResult.rows.length === 0) {
-      return res.status(404).json({ message: "Booking not found" });
-    }
-
-    const booking = bookingResult.rows[0];
-
-    if (booking.status !== "approved") {
-      return res.status(400).json({
-        message: "Only approved bookings can be issued"
-      });
-    }
-
-    const updatedBooking = await pool.query(
-      `UPDATE bookings
-       SET status = 'issued',
-           issued_at = CURRENT_TIMESTAMP
-       WHERE id = $1
-       RETURNING *`,
-      [id]
-    );
-
-    res.json({
-      message: "Asset issued successfully",
-      booking: updatedBooking.rows[0]
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Asset issue failed" });
+  const asset = {
+    id: randomId(),
+    name,
+    category,
+    description,
+    quantity: Number(quantity) || 1,
+    status,
+    condition,
   }
-});
 
-app.patch("/bookings/:id/return", async (req, res) => {
-  try {
-    const { id } = req.params;
+  assets.push(asset)
+  return res.status(201).json(serializeAsset(asset))
+})
 
-    const bookingResult = await pool.query(
-      "SELECT * FROM bookings WHERE id = $1",
-      [id]
-    );
+app.put('/api/assets/:id', requireAuth, requireAdmin, (req, res) => {
+  const asset = assets.find((candidate) => candidate.id === req.params.id)
 
-    if (bookingResult.rows.length === 0) {
-      return res.status(404).json({
-        message: "Booking not found"
-      });
-    }
-
-    const booking = bookingResult.rows[0];
-
-    if (booking.status !== "issued") {
-      return res.status(400).json({
-        message: "Only issued bookings can be returned"
-      });
-    }
-
-    // Increase asset quantity back
-    await pool.query(
-      `UPDATE assets
-       SET available_quantity = available_quantity + $1
-       WHERE id = $2`,
-      [booking.quantity, booking.asset_id]
-    );
-
-    const updatedBooking = await pool.query(
-      `UPDATE bookings
-       SET status = 'returned',
-           returned_at = CURRENT_TIMESTAMP
-       WHERE id = $1
-       RETURNING *`,
-      [id]
-    );
-
-    res.json({
-      message: "Asset returned successfully",
-      booking: updatedBooking.rows[0]
-    });
-
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      message: "Asset return failed"
-    });
+  if (!asset) {
+    return res.status(404).json({ message: 'Asset not found' })
   }
-});
 
-app.get("/bookings/my/:user_id", async (req, res) => {
-  try {
-    const { user_id } = req.params;
+  Object.assign(asset, {
+    ...req.body,
+    quantity: req.body?.quantity !== undefined ? Number(req.body.quantity) || asset.quantity : asset.quantity,
+  })
 
-    const result = await pool.query(
-      `SELECT bookings.*, assets.name AS asset_name, assets.category
-       FROM bookings
-       JOIN assets ON bookings.asset_id = assets.id
-       WHERE bookings.user_id = $1
-       ORDER BY bookings.created_at DESC`,
-      [user_id]
-    );
+  return res.json(serializeAsset(asset))
+})
 
-    res.json(result.rows);
+app.delete('/api/assets/:id', requireAuth, requireAdmin, (req, res) => {
+  const index = assets.findIndex((candidate) => candidate.id === req.params.id)
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to fetch user bookings" });
+  if (index === -1) {
+    return res.status(404).json({ message: 'Asset not found' })
   }
-});
 
-app.get("/bookings", async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT bookings.*, users.name AS user_name, assets.name AS asset_name
-       FROM bookings
-       JOIN users ON bookings.user_id = users.id
-       JOIN assets ON bookings.asset_id = assets.id
-       ORDER BY bookings.created_at DESC`
-    );
+  assets.splice(index, 1)
+  return res.status(204).send()
+})
 
-    res.json(result.rows);
+app.get('/api/bookings', requireAuth, (req, res) => {
+  const visibleBookings = req.user.role === 'ADMIN'
+    ? bookings
+    : bookings.filter((booking) => booking.userId === req.user.id)
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to fetch bookings" });
+  return res.json(visibleBookings.map(serializeBooking))
+})
+
+app.get('/api/bookings/mine', requireAuth, (req, res) => {
+  return res.json(bookings.filter((booking) => booking.userId === req.user.id).map(serializeBooking))
+})
+
+app.post('/api/bookings', requireAuth, (req, res) => {
+  const { assetId, quantity, startDate, endDate, purpose } = req.body || {}
+  const asset = assets.find((candidate) => candidate.id === assetId)
+
+  if (!asset) {
+    return res.status(404).json({ message: 'Asset not found' })
   }
-});
 
-app.get("/dashboard/stats", async (req, res) => {
-  try {
-    const totalAssets = await pool.query(
-      "SELECT COUNT(*) FROM assets"
-    );
+  const requestedQuantity = Number(quantity) || 1
+  const availableQuantity = asset.quantity - bookedQuantityForAsset(asset.id)
 
-    const availableInventory = await pool.query(
-      "SELECT SUM(available_quantity) FROM assets"
-    );
-
-    const activeBookings = await pool.query(
-      "SELECT COUNT(*) FROM bookings WHERE status IN ('approved', 'issued')"
-    );
-
-    const overdueReturns = await pool.query(
-      `SELECT COUNT(*) FROM bookings
-       WHERE status = 'issued' AND end_date < CURRENT_DATE`
-    );
-
-    const mostUsedAssets = await pool.query(
-      `SELECT assets.name, COUNT(bookings.id) AS booking_count
-       FROM bookings
-       JOIN assets ON bookings.asset_id = assets.id
-       GROUP BY assets.name
-       ORDER BY booking_count DESC`
-    );
-
-    res.json({
-      total_assets: Number(totalAssets.rows[0].count),
-      available_inventory: Number(availableInventory.rows[0].sum),
-      active_bookings: Number(activeBookings.rows[0].count),
-      overdue_returns: Number(overdueReturns.rows[0].count),
-      most_used_assets: mostUsedAssets.rows
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      message: "Failed to fetch dashboard stats"
-    });
+  if (requestedQuantity < 1 || requestedQuantity > availableQuantity) {
+    return res.status(400).json({ message: `Quantity must be between 1 and ${availableQuantity}` })
   }
-});
+
+  const booking = {
+    id: randomId(),
+    userId: req.user.id,
+    assetId: asset.id,
+    quantity: requestedQuantity,
+    startDate,
+    endDate,
+    dueDate: endDate,
+    purpose,
+    status: 'PENDING',
+  }
+
+  bookings.push(booking)
+  return res.status(201).json(serializeBooking(booking))
+})
+
+function updateBookingStatus(req, res, status, extraFields = {}) {
+  const booking = bookings.find((candidate) => candidate.id === req.params.id)
+
+  if (!booking) {
+    return res.status(404).json({ message: 'Booking not found' })
+  }
+
+  Object.assign(booking, { status, ...extraFields })
+  return res.json(serializeBooking(booking))
+}
+
+app.patch('/api/bookings/:id/approve', requireAuth, requireAdmin, (req, res) => {
+  return updateBookingStatus(req, res, 'APPROVED')
+})
+
+app.patch('/api/bookings/:id/reject', requireAuth, requireAdmin, (req, res) => {
+  return updateBookingStatus(req, res, 'REJECTED', { rejectionReason: req.body?.reason || '' })
+})
+
+app.patch('/api/bookings/:id/issue', requireAuth, requireAdmin, (req, res) => {
+  return updateBookingStatus(req, res, 'ISSUED')
+})
+
+app.patch('/api/bookings/:id/return', requireAuth, requireAdmin, (req, res) => {
+  return updateBookingStatus(req, res, 'RETURNED', { returnedAt: new Date().toISOString().slice(0, 10) })
+})
 
 app.listen(PORT, () => {
-    console.log(`Server started on port ${PORT}`);
-});
+  console.log(`Server started on port ${PORT}`)
+})
