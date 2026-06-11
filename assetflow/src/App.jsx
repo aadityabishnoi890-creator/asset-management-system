@@ -3,7 +3,7 @@ import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { AppLayout } from './components/layout/AppLayout'
 import { LoginPage, RegisterPage } from './pages/AuthPages'
-
+import { AssetsPage } from './pages/AssetsPage'
 function RequireAuth() {
   const { user, loading } = useAuth()
   if (loading) return null
@@ -46,6 +46,7 @@ export default function App() {
           {/* User routes */}
           <Route element={<RequireAuth />}>
             <Route element={<AppLayout />}>
+              <Route path="/assets" element={<AssetsPage />} />
               <Route path="/dashboard" element={<Soon name="User Dashboard" />} />
               <Route path="/assets"    element={<Soon name="Assets" />} />
               <Route path="/bookings"  element={<Soon name="My Bookings" />} />
