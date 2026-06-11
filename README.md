@@ -9,12 +9,19 @@ Built with *React + Vite* (frontend) and *Express* (backend, in-memory data stor
 ## Features
 
 •⁠  ⁠🔐 *Authentication* — Register & login with role-based access (Admin / User)
+
 •⁠  ⁠📦 *Asset Catalogue* — Browse, search, and filter assets by category
+
 •⁠  ⁠📋 *Booking Requests* — Users request assets with dates, quantity, and purpose
+
 •⁠  ⁠✅ *Admin Approvals* — Admins approve, reject, issue, and mark returns
+
 •⁠  ⁠📊 *Dashboards* — Role-specific dashboards with stats and charts
+
 •⁠  ⁠🔍 *Audit Logs* — Full activity history for all system actions
+
 •⁠  ⁠📷 *QR Codes* — Generate & scan QR codes to issue / return assets
+
 •⁠  ⁠🔔 *Notifications* — In-app notification bell with unread badge
 
 ---
