@@ -6,6 +6,25 @@ Built with *React + Vite* (frontend) and *Express* (backend, in-memory data stor
 
 ---
 
+## Architecture
+
+AssetFlow follows a client-server architecture.
+
+- **Frontend:** React + Vite web application for users and administrators
+- **Backend:** Express.js REST API handling authentication, assets, bookings, approvals, and audit operations
+- **Authentication:** Token-based authentication with role-based access control
+- **Data Layer:** In-memory data store for rapid development and demonstration
+- **Communication:** Frontend interacts with backend through RESTful API endpoints
+
+### System Flow
+
+User/Admin → React Frontend → Express API → Data Store
+
+The system supports the complete asset lifecycle:
+Asset Creation → Booking Request → Approval/Rejection → Issue → Return → Audit Logging
+
+---
+
 ## Features
 
 •⁠  ⁠🔐 *Authentication* — Register & login with role-based access (Admin / User)
@@ -217,6 +236,16 @@ lsof -ti:5173 | xargs kill -9   # free frontend port
 ### Import resolution errors after cloning
 
 If you see ⁠ Failed to resolve import ⁠, it is usually a *filename casing mismatch. Git on macOS is case-insensitive by default. Verify that all import paths match the **exact* casing of the file on disk.
+
+---
+
+## Future Improvements
+
+- PostgreSQL database integration
+- Email notifications
+- Real-time inventory updates
+- Multi-organization support
+- Mobile application
 
 ---
 
