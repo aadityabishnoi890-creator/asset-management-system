@@ -6,8 +6,8 @@ import { LoginPage, RegisterPage } from './pages/AuthPages'
 import { AssetsPage } from './pages/AssetsPage'
 import { AdminAssetsPage } from './pages/AdminAssets'
 import { AdminBookingsPage } from './pages/AdminBookings'
-
-
+import { UserDashboardPage } from './pages/UserDashboard'
+import { HistoryPage } from './pages/HistoryPage'
 
 function RequireAuth() {
   const { user, loading } = useAuth()
@@ -62,10 +62,10 @@ export default function App() {
           {/* Admin routes */}
           <Route element={<RequireAdmin />}>
             <Route element={<AppLayout />}>
-              <Route path="/admin/dashboard" element={<Soon name="Admin Dashboard" />} />
+              <Route path="/dashboard" element={<UserDashboardPage />} />
               <Route path="/admin/assets" element={<AdminAssetsPage />} />
               <Route path="/admin/bookings"  element={<Soon name="Admin Bookings" />} />
-              <Route path="/admin/history"   element={<Soon name="Admin History" />} />
+              <Route path="/history"   element={<HistoryPage />} />
               <Route path="/admin/audit"     element={<Soon name="Audit Logs" />} />
               <Route path="/admin/qr"        element={<Soon name="QR Scanner" />} />
             </Route>
