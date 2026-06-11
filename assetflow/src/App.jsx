@@ -4,6 +4,9 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { AppLayout } from './components/layout/AppLayout'
 import { LoginPage, RegisterPage } from './pages/AuthPages'
 import { AssetsPage } from './pages/AssetsPage'
+import { AdminAssetsPage } from './pages/AdminAssets'
+
+
 function RequireAuth() {
   const { user, loading } = useAuth()
   if (loading) return null
@@ -58,7 +61,7 @@ export default function App() {
           <Route element={<RequireAdmin />}>
             <Route element={<AppLayout />}>
               <Route path="/admin/dashboard" element={<Soon name="Admin Dashboard" />} />
-              <Route path="/admin/assets"    element={<Soon name="Admin Assets" />} />
+              <Route path="/admin/assets" element={<AdminAssetsPage />} />
               <Route path="/admin/bookings"  element={<Soon name="Admin Bookings" />} />
               <Route path="/admin/history"   element={<Soon name="Admin History" />} />
               <Route path="/admin/audit"     element={<Soon name="Audit Logs" />} />
