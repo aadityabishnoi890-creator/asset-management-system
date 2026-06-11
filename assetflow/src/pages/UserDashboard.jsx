@@ -1,15 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Package, CalendarCheck, AlertTriangle, CheckCircle, Clock, ArrowRight } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
-
-// ── Mock data (swap for real API — bookingAPI.getMine()) ───────────────────
-const MOCK_MY_BOOKINGS = [
-  { id: '1', asset: { name: 'DSLR Canon EOS 5D', category: 'Camera'  }, quantity: 1, startDate: '2025-06-12', dueDate: '2025-06-14', purpose: 'Photography workshop',  status: 'ISSUED'   },
-  { id: '2', asset: { name: 'Rode NTG4+ Mic',    category: 'Audio'   }, quantity: 2, startDate: '2025-06-15', dueDate: '2025-06-17', purpose: 'Music fest recording', status: 'PENDING'  },
-  { id: '3', asset: { name: 'Yamaha MG10 Mixer', category: 'Audio'   }, quantity: 1, startDate: '2025-06-01', dueDate: '2025-06-03', purpose: 'DJ night',             status: 'RETURNED' },
-  { id: '4', asset: { name: 'DJI Ronin-S',       category: 'Camera'  }, quantity: 1, startDate: '2025-06-08', dueDate: '2025-06-04', purpose: 'Short film',           status: 'ISSUED'   },
-]
+import { useAuth } from '../context/auth_context.jsx'
+import { bookingAPI } from '../api/services'
 
 const STATUS_STYLES = {
   PENDING:  'bg-amber-50  text-amber-700',
@@ -21,12 +14,37 @@ const STATUS_STYLES = {
 
 export function UserDashboardPage() {
   const { user } = useAuth()
-  const bookings = MOCK_MY_BOOKINGS
+  const [bookings, setBookings] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+
+    const loadBookings = async () => {
+      try {
+        const res = await bookingAPI.getMine()
+        const nextBookings = res.data.bookings ?? res.data ?? []
+        if (active) setBookings(nextBookings)
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadBookings()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const active   = bookings.filter(b => b.status === 'ISSUED')
   const pending  = bookings.filter(b => b.status === 'PENDING')
   const returned = bookings.filter(b => b.status === 'RETURNED')
   const overdue  = active.filter(b => new Date(b.dueDate) < new Date())
+
+  if (loading) {
+    return <div className="py-10 text-sm text-slate-500">Loading dashboard…</div>
+  }
 
   return (
     <div className="space-y-6">

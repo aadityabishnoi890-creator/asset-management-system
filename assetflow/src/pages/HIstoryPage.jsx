@@ -1,21 +1,40 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Search } from 'lucide-react'
-
-// ── Mock data (swap for real API — bookingAPI.getMine()) ───────────────────
-const MOCK_HISTORY = [
-  { id: '3', asset: { name: 'Yamaha MG10 Mixer', category: 'Audio'    }, quantity: 1, startDate: '2025-06-01', returnedAt: '2025-06-03', purpose: 'DJ night sound setup',       status: 'RETURNED' },
-  { id: '6', asset: { name: 'Stage Costumes',    category: 'Costume'  }, quantity: 5, startDate: '2025-05-28', returnedAt: '2025-05-30', purpose: 'Cultural dance performance', status: 'RETURNED' },
-  { id: '7', asset: { name: 'Backdrop Stand',    category: 'Props'    }, quantity: 2, startDate: '2025-05-15', returnedAt: '2025-05-17', purpose: 'Annual photo exhibition',    status: 'RETURNED' },
-  { id: '8', asset: { name: 'Zoom H6 Recorder',  category: 'Recording'}, quantity: 1, startDate: '2025-05-10', returnedAt: '2025-05-11', purpose: 'Podcast recording session',  status: 'RETURNED' },
-]
+import { bookingAPI } from '../api/services'
 
 export function HistoryPage() {
   const [search, setSearch] = useState('')
+  const [bookings, setBookings] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const filtered = MOCK_HISTORY.filter(b =>
+  useEffect(() => {
+    let active = true
+
+    const loadHistory = async () => {
+      try {
+        const res = await bookingAPI.getMine()
+        const nextBookings = res.data.bookings ?? res.data ?? []
+        if (active) setBookings(nextBookings.filter((booking) => booking.status === 'RETURNED'))
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadHistory()
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const filtered = bookings.filter(b =>
     b.asset.name.toLowerCase().includes(search.toLowerCase()) ||
     b.purpose.toLowerCase().includes(search.toLowerCase())
   )
+
+  if (loading) {
+    return <div className="py-10 text-sm text-slate-500">Loading history…</div>
+  }
 
   return (
     <div className="space-y-5">
@@ -23,7 +42,7 @@ export function HistoryPage() {
       {/* Header */}
       <div>
         <h1 className="text-xl font-semibold text-slate-900">Borrowing History</h1>
-        <p className="text-sm text-slate-500 mt-0.5">{MOCK_HISTORY.length} past transactions</p>
+        <p className="text-sm text-slate-500 mt-0.5">{bookings.length} past transactions</p>
       </div>
 
       {/* Search */}

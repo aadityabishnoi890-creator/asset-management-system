@@ -1,15 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
-
-// ── Mock data (swap for real API once Aaditya's backend is ready) ──────────
-const INITIAL_ASSETS = [
-  { id: '1', name: 'DSLR Canon EOS 5D Mark IV', category: 'Camera',   description: 'Professional full-frame DSLR', quantity: 3, status: 'AVAILABLE', condition: 'Excellent' },
-  { id: '2', name: 'Rode NTG4+ Shotgun Mic',    category: 'Audio',    description: 'Directional condenser mic',    quantity: 5, status: 'AVAILABLE', condition: 'Good'      },
-  { id: '3', name: 'Aputure 300D Mark II',       category: 'Lighting', description: 'Professional LED light',      quantity: 4, status: 'IN_USE',    condition: 'Good'      },
-  { id: '4', name: 'DJI Ronin-S Gimbal',         category: 'Camera',   description: 'Camera stabilizer',           quantity: 2, status: 'AVAILABLE', condition: 'Excellent' },
-  { id: '5', name: 'Yamaha MG10 Mixer',          category: 'Audio',    description: '10-channel mixing console',   quantity: 2, status: 'AVAILABLE', condition: 'Fair'      },
-]
+import { assetAPI } from '../api/services'
 
 const CATEGORIES = ['Camera', 'Audio', 'Lighting', 'Costume', 'Props', 'Recording', 'Infrastructure']
 const STATUSES   = ['AVAILABLE', 'IN_USE', 'MAINTENANCE', 'DAMAGED']
@@ -25,12 +17,35 @@ const STATUS_STYLES = {
 const BLANK = { name: '', category: 'Camera', description: '', quantity: 1, status: 'AVAILABLE', condition: 'Good' }
 
 export function AdminAssetsPage() {
-  const [assets, setAssets]       = useState(INITIAL_ASSETS)
+  const [assets, setAssets]       = useState([])
   const [search, setSearch]       = useState('')
   const [showForm, setShowForm]   = useState(false)
   const [editing, setEditing]     = useState(null)   // asset being edited
   const [deleteTarget, setDeleteTarget] = useState(null) // asset to delete
   const [showConfirm, setShowConfirm]   = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+
+    const loadAssets = async () => {
+      try {
+        const res = await assetAPI.getAll()
+        const nextAssets = res.data.assets ?? res.data ?? []
+        if (active) setAssets(nextAssets)
+      } catch {
+        toast.error('Failed to load assets')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    loadAssets()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const filtered = assets.filter(a =>
     a.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -40,28 +55,46 @@ export function AdminAssetsPage() {
   const openAdd  = ()      => { setEditing(null);  setShowForm(true) }
   const openEdit = (asset) => { setEditing(asset); setShowForm(true) }
 
-  const handleSave = (formData) => {
-    if (editing) {
-      // TODO: swap → await assetAPI.update(editing.id, formData)
-      setAssets(prev => prev.map(a => a.id === editing.id ? { ...a, ...formData } : a))
-      toast.success('Asset updated')
-    } else {
-      // TODO: swap → await assetAPI.create(formData)
-      setAssets(prev => [...prev, { ...formData, id: Date.now().toString() }])
-      toast.success('Asset added')
+  const handleSave = async (formData) => {
+    const payload = { ...formData, quantity: Number(formData.quantity) || 1 }
+
+    try {
+      if (editing) {
+        const res = await assetAPI.update(editing.id, payload)
+        const updatedAsset = res.data.asset ?? res.data
+        setAssets(prev => prev.map(a => a.id === editing.id ? updatedAsset : a))
+        toast.success('Asset updated')
+      } else {
+        const res = await assetAPI.create(payload)
+        const createdAsset = res.data.asset ?? res.data
+        setAssets(prev => [...prev, createdAsset])
+        toast.success('Asset added')
+      }
+      setShowForm(false)
+      setEditing(null)
+    } catch {
+      toast.error('Could not save asset')
     }
-    setShowForm(false)
-    setEditing(null)
   }
 
   const confirmDelete = (asset) => { setDeleteTarget(asset); setShowConfirm(true) }
 
-  const handleDelete = () => {
-    // TODO: swap → await assetAPI.delete(deleteTarget.id)
-    setAssets(prev => prev.filter(a => a.id !== deleteTarget.id))
-    toast.success('Asset deleted')
-    setShowConfirm(false)
-    setDeleteTarget(null)
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+
+    try {
+      await assetAPI.delete(deleteTarget.id)
+      setAssets(prev => prev.filter(a => a.id !== deleteTarget.id))
+      toast.success('Asset deleted')
+      setShowConfirm(false)
+      setDeleteTarget(null)
+    } catch {
+      toast.error('Could not delete asset')
+    }
+  }
+
+  if (loading) {
+    return <div className="py-10 text-sm text-slate-500">Loading assets…</div>
   }
 
   return (
@@ -174,8 +207,10 @@ function AssetFormModal({ open, editing, onClose, onSave }) {
   const [form, setForm]   = useState(editing || BLANK)
   const [errors, setErrors] = useState({})
 
-  // sync form when editing changes
-  useState(() => { setForm(editing || BLANK); setErrors({}) }, [editing])
+  useEffect(() => {
+    setForm(editing || BLANK)
+    setErrors({})
+  }, [editing, open])
 
   if (!open) return null
 
