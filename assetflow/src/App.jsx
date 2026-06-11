@@ -5,6 +5,8 @@ import { AppLayout } from './components/layout/AppLayout'
 import { LoginPage, RegisterPage } from './pages/AuthPages'
 import { AssetsPage } from './pages/AssetsPage'
 import { AdminAssetsPage } from './pages/AdminAssets'
+import { AdminBookingsPage } from './pages/AdminBookings'
+
 
 
 function RequireAuth() {
@@ -52,7 +54,7 @@ export default function App() {
               <Route path="/assets" element={<AssetsPage />} />
               <Route path="/dashboard" element={<Soon name="User Dashboard" />} />
               <Route path="/assets"    element={<Soon name="Assets" />} />
-              <Route path="/bookings"  element={<Soon name="My Bookings" />} />
+              <Route path="/admin/bookings" element={<AdminBookingsPage />} />
               <Route path="/history"   element={<Soon name="History" />} />
             </Route>
           </Route>
