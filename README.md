@@ -114,7 +114,7 @@ These accounts are seeded automatically at server start:
 
 ## Project Structure
 
-
+```text			
 asset-management-system/
 ├── assetflow/                  # React + Vite frontend
 │   ├── src/
@@ -145,7 +145,7 @@ asset-management-system/
 │   │   └── server.js           # Express server, all API routes, in-memory data
 │   └── package.json
 └── README.md
-
+```
 
 ---
 
