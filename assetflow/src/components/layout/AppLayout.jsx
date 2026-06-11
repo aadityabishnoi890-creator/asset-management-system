@@ -23,6 +23,7 @@ const adminNav = [
   { to: '/admin/audit',     label: 'Audit Logs',   icon: Activity },
   { to: '/admin/qr',        label: 'QR Scanner',   icon: QrCode },
 ]
+
 const MOCK_NOTIFS = [
   { id: '1', message: 'Your booking for DSLR Canon EOS 5D has been approved ✅', read: false, createdAt: '2025-06-11T10:35:00Z' },
   { id: '2', message: 'Rode NTG4+ Mic is due for return tomorrow ⚠️',           read: false, createdAt: '2025-06-11T09:00:00Z' },
@@ -42,16 +43,11 @@ function timeAgo(iso) {
     return `${mins}m ago`
   } catch { return '' }
 }
-export function AppLayout() {
-  const { user, logout, isAdmin } = useAuth()
-  const navigate    = useNavigate()
-  const [collapsed, setCollapsed]   = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const navItems = isAdmin ? adminNav : userNav
 
-  const handleLogout = () => { logout(); navigate('/login') }
-
-  const Sidebar = () => (
+// ── Sidebar extracted as a proper top-level component to avoid recreating
+// it on every render (which would reset any internal state it holds)
+function Sidebar({ collapsed, setCollapsed, navItems, isAdmin, user, onLogout }) {
+  return (
     <aside className={`flex flex-col h-full bg-white border-r border-slate-200 transition-all duration-200 ${collapsed ? 'w-16' : 'w-60'}`}>
       
       {/* Logo */}
@@ -98,7 +94,7 @@ export function AppLayout() {
             <p className="text-xs text-slate-400 truncate">{user?.email}</p>
           </div>
         )}
-        <button onClick={handleLogout}
+        <button onClick={onLogout}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-500 hover:text-red-600 hover:bg-red-50 w-full transition-colors ${collapsed ? 'justify-center' : ''}`}>
           <LogOut size={18} className="flex-shrink-0" />
           {!collapsed && 'Sign out'}
@@ -111,20 +107,46 @@ export function AppLayout() {
       </div>
     </aside>
   )
+}
+
+export function AppLayout() {
+  const { user, logout, isAdmin } = useAuth()
+  const navigate    = useNavigate()
+  const [collapsed, setCollapsed]   = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const navItems = isAdmin ? adminNav : userNav
+
+  const handleLogout = () => { logout(); navigate('/login') }
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
 
       {/* Desktop sidebar */}
       <div className="hidden lg:flex flex-col h-full">
-        <Sidebar />
+        <Sidebar
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          navItems={navItems}
+          isAdmin={isAdmin}
+          user={user}
+          onLogout={handleLogout}
+        />
       </div>
 
       {/* Mobile sidebar overlay */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-40 flex">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
-          <div className="relative w-60 h-full"><Sidebar /></div>
+          <div className="relative w-60 h-full">
+            <Sidebar
+              collapsed={collapsed}
+              setCollapsed={setCollapsed}
+              navItems={navItems}
+              isAdmin={isAdmin}
+              user={user}
+              onLogout={handleLogout}
+            />
+          </div>
         </div>
       )}
 

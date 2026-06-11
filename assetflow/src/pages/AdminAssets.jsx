@@ -183,6 +183,7 @@ export function AdminAssetsPage() {
 
       {/* Add / Edit modal */}
       <AssetFormModal
+        key={editing?.id ?? 'new'}
         open={showForm}
         editing={editing}
         onClose={() => { setShowForm(false); setEditing(null) }}
@@ -206,11 +207,6 @@ export function AdminAssetsPage() {
 function AssetFormModal({ open, editing, onClose, onSave }) {
   const [form, setForm]   = useState(editing || BLANK)
   const [errors, setErrors] = useState({})
-
-  useEffect(() => {
-    setForm(editing || BLANK)
-    setErrors({})
-  }, [editing, open])
 
   if (!open) return null
 

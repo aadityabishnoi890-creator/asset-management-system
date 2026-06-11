@@ -72,14 +72,18 @@ function GenerateTab({ assets }) {
   const selectedAsset = assets.find(a => a.id === selectedId)
 
   useEffect(() => {
-    if (!selectedId || !selectedAsset) { setQrDataUrl(''); return }
+    if (!selectedId || !selectedAsset) {
+      Promise.resolve().then(() => setQrDataUrl(''))
+      return
+    }
 
-    setGenerating(true)
     const payload = JSON.stringify({
       assetId:   selectedAsset.id,
       assetName: selectedAsset.name,
       category:  selectedAsset.category,
     })
+
+    Promise.resolve().then(() => setGenerating(true))
 
     QRCode.toDataURL(payload, {
       width:  280,
@@ -87,9 +91,15 @@ function GenerateTab({ assets }) {
       color:  { dark: '#0f172a', light: '#ffffff' },
       errorCorrectionLevel: 'M',
     })
-      .then(url => { setQrDataUrl(url); setGenerating(false) })
-      .catch(() => { toast.error('Failed to generate QR'); setGenerating(false) })
-  }, [selectedId])
+      .then(url => {
+        setQrDataUrl(url)
+        setGenerating(false)
+      })
+      .catch(() => {
+        toast.error('Failed to generate QR')
+        setGenerating(false)
+      })
+  }, [selectedId, selectedAsset])
 
   const handleDownload = () => {
     if (!qrDataUrl || !selectedAsset) return

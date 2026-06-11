@@ -33,10 +33,6 @@ function RedirectIfAuthed() {
   return <Navigate to={isAdmin ? '/admin/dashboard' : '/dashboard'} replace />
 }
 
-// placeholder so routes don't crash yet
-function Soon({ name }) {
-  return <div className="text-slate-500 text-sm p-4">🚧 {name} — coming next commit</div>
-}
 
 export default function App() {
   return (

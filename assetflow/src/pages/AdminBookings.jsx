@@ -3,16 +3,6 @@ import { CheckCircle, XCircle, ArrowDownCircle, ArrowUpCircle } from 'lucide-rea
 import toast from 'react-hot-toast'
 import { bookingAPI } from '../api/services'
 
-// ── Mock data ──────────────────────────────────────────────────────────────
-const INITIAL_BOOKINGS = [
-  { id: '1', user: { name: 'Rahul Verma',  email: 'rahul@iitroorkee.ac.in' }, asset: { name: 'DSLR Canon EOS 5D', category: 'Camera'   }, quantity: 1, startDate: '2025-06-12', endDate: '2025-06-14', dueDate: '2025-06-14', purpose: 'Photography workshop',    status: 'PENDING'  },
-  { id: '2', user: { name: 'Priya Singh',  email: 'priya@iitroorkee.ac.in' }, asset: { name: 'Rode NTG4+ Mic',   category: 'Audio'    }, quantity: 2, startDate: '2025-06-10', endDate: '2025-06-11', dueDate: '2025-06-11', purpose: 'Music fest recording',    status: 'PENDING'  },
-  { id: '3', user: { name: 'Arjun Mehta',  email: 'arjun@iitroorkee.ac.in' }, asset: { name: 'Aputure 300D',     category: 'Lighting' }, quantity: 2, startDate: '2025-06-08', endDate: '2025-06-09', dueDate: '2025-06-09', purpose: 'Stage lighting setup',    status: 'APPROVED' },
-  { id: '4', user: { name: 'Sneha Gupta',  email: 'sneha@iitroorkee.ac.in' }, asset: { name: 'DJI Ronin-S',      category: 'Camera'   }, quantity: 1, startDate: '2025-06-05', endDate: '2025-06-06', dueDate: '2025-06-06', purpose: 'Short film project',      status: 'ISSUED'   },
-  { id: '5', user: { name: 'Karan Sharma', email: 'karan@iitroorkee.ac.in' }, asset: { name: 'Yamaha MG10',      category: 'Audio'    }, quantity: 1, startDate: '2025-06-01', endDate: '2025-06-02', dueDate: '2025-06-02', purpose: 'DJ night sound setup',    status: 'ISSUED'   },
-  { id: '6', user: { name: 'Ananya Rao',   email: 'ananya@iitroorkee.ac.in'}, asset: { name: 'Stage Costumes',   category: 'Costume'  }, quantity: 5, startDate: '2025-05-28', endDate: '2025-05-30', dueDate: '2025-05-30', purpose: 'Cultural dance performance', status: 'RETURNED' },
-]
-
 const STATUS_STYLES = {
   PENDING:  'bg-amber-50  text-amber-700',
   APPROVED: 'bg-blue-50   text-blue-700',
