@@ -9,6 +9,7 @@ import { AdminBookingsPage } from './pages/AdminBookings'
 import { UserDashboardPage } from './pages/UserDashboard'
 import { HistoryPage } from './pages/HistoryPage'
 import { AdminDashboardPage } from './pages/AdminDashboard'
+import { AuditLogsPage } from './pages/AuditLogsPage'
 
 function RequireAuth() {
   const { user, loading } = useAuth()
@@ -64,8 +65,7 @@ export default function App() {
               <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
               <Route path="/admin/assets" element={<AdminAssetsPage />} />
               <Route path="/admin/bookings"  element={<AdminBookingsPage />} />
-              
-              <Route path="/admin/audit"     element={<Soon name="Audit Logs" />} />
+              <Route path="/admin/audit" element={<AuditLogsPage />} />
               <Route path="/admin/qr"        element={<Soon name="QR Scanner" />} />
             </Route>
           </Route>
