@@ -8,8 +8,10 @@ import { AdminAssetsPage } from './pages/AdminAssets'
 import { AdminBookingsPage } from './pages/AdminBookings'
 import { UserDashboardPage } from './pages/UserDashboard'
 import { HistoryPage } from './pages/HistoryPage.jsx'
+import { MyBookingsPage } from './pages/MyBookingsPage.jsx'
 import { AdminDashboardPage } from './pages/AdminDashboard'
 import { AuditLogsPage } from './pages/AuditLogsPage'
+import { AdminActivityPage } from './pages/AdminActivityPage.jsx'
 import { QRPage } from './pages/QRPage'
 
 function RequireAuth() {
@@ -53,7 +55,7 @@ export default function App() {
               <Route path="/assets" element={<AssetsPage />} />
               <Route path="/dashboard" element={<UserDashboardPage />} />
               <Route path="/history"   element={<HistoryPage />} />
-              <Route path="/bookings" element={<Navigate to="/history" replace />} />
+              <Route path="/bookings" element={<MyBookingsPage />} />
             </Route>
           </Route>
 
@@ -65,7 +67,7 @@ export default function App() {
               <Route path="/admin/bookings"  element={<AdminBookingsPage />} />
               <Route path="/admin/audit" element={<AuditLogsPage />} />
               <Route path="/admin/qr" element={<QRPage />} />
-              <Route path="/admin/history" element={<Navigate to="/admin/audit" replace />} />
+              <Route path="/admin/history" element={<AdminActivityPage />} />
             </Route>
           </Route>
 
